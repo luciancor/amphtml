@@ -160,10 +160,14 @@ export class ContextNode {
    * Creates the context node and automatically starts the discovery process.
    *
    * @param {!Node} node
+   * @param {?string=} name
    */
-  constructor(node) {
+  constructor(node, name = null) {
     /** @const {!Node} */
     this.node = node;
+
+    /** @const @package {?string} */
+    this.name = name;
 
     /**
      * Whether this node is a root. The Document DOM nodes are automatically
@@ -199,6 +203,9 @@ export class ContextNode {
      * @package {?Array<!ContextNode>}
      */
     this.children = null;
+
+    /** @private {?Map<string, {cn: !ContextNode, match: function(!Node):boolean}>} */
+    this.pseudos_ = null;
 
     /** @package {!Values} */
     this.values = new Values(this);
@@ -303,6 +310,62 @@ export class ContextNode {
   }
 
   /**
+   * @param {string} name
+   * @param {function(!Node):boolean} match
+   */
+  setPseudo(name, match) {
+    const pseudos = this.pseudos_ || (this.pseudos_ = new Map());
+    const pseudo = pseudos.get(name);
+    if (pseudo) {
+      return;
+    }
+
+    const cn = new ContextNode(this.node, name);
+    pseudos.set(name, {cn, match});
+    cn.setParent(this);
+    const {children} = this;
+    if (children) {
+      children.forEach((child) => {
+        // QQQ: steal from other pseudos
+        if (child !== cn && match(child.node, this.node)) {
+          child.discover();
+        }
+      });
+    }
+  }
+
+  /**
+   * @param {string} name
+   * @return {?ContextNode}
+   */
+  pseudo(name) {
+    const pseudos = this.pseudos_;
+    const pseudo = pseudos && pseudos.get(name);
+    return (pseudo && pseudo.cn) || null;
+  }
+
+  /**
+   * @param {!Node} node
+   * @return {?ContextNode}
+   * @protected
+   */
+  matchPseudo(node) {
+    // QQQQ: priority. E.g. "inner"/"other" has lower priority than "placeholder".
+    const pseudos = this.pseudos_;
+    if (!pseudos) {
+      return null;
+    }
+    let found = null;
+    pseudos.forEach(({cn, match}) => {
+      if (!found && match(node, this.node)) {
+        found = cn;
+        // QQQ: short-circuit better?
+      }
+    });
+    return found;
+  }
+
+  /**
    * Add or update a component with a specified ID. If component doesn't
    * yet exist, it will be created using the specified factory. The use
    * of factory is important to reduce bundling costs for context node.
@@ -370,7 +433,9 @@ export class ContextNode {
       // queue.
       return;
     }
-    const parent = ContextNode.closest(this.node, /* includeSelf */ false);
+    const closestNode = ContextNode.closest(this.node, /* includeSelf */ false);
+    const parent =
+      (closestNode && closestNode.matchPseudo(this.node)) || closestNode;
     this.updateTree_(parent, /* parentOverridden */ false);
   }
 

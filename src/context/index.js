@@ -36,6 +36,15 @@ export {
   useSetProp,
   useRemoveProp,
 } from './component-hooks';
+export {
+  CanRender,
+  CanPlay,
+  LoadingStrategy,
+  LoadingStrategyProp,
+  LoadPendingState,
+  LoadedState,
+} from './props';
+export {observeInput} from './input-observer';
 
 /**
  * Direct slot assignment. Works the same way as shadow slots, but does not
@@ -60,6 +69,27 @@ export function assignSlot(node, slot) {
  */
 export function unassignSlot(node, slot) {
   ContextNode.unassignSlot(node, slot);
+}
+
+/**
+ * Sets (or unsets) the direct parent. If the parent is set, the node will no
+ * longer try to discover itself.
+ *
+ * @param {!Node} node
+ * @param {!ContextNode|!Node|null} parent
+ */
+export function setParent(node, parent) {
+  ContextNode.get(node).setParent(parent);
+}
+
+/**
+ * Requests the discovery phase. Asynchronously finds the nearest parent for
+ * this node and its root. Roots and parents set directly via `setParent()`
+ * API are not discoverable.
+ * @param {!Node} node
+ */
+export function discover(node) {
+  ContextNode.get(node).discover();
 }
 
 /**
@@ -96,4 +126,25 @@ export function setProp(node, prop, setter, value) {
  */
 export function removeProp(node, prop, setter) {
   ContextNode.get(node).values.remove(prop, setter);
+}
+
+/**
+ * @param {!Node} node
+ * @param {string} name
+ * @param {function(!Node):boolean} match
+ */
+export function setPseudoNode(node, name, match) {
+  ContextNode.get(node).setPseudo(name, match);
+}
+
+/**
+ * @param {!Node} node
+ * @param {string} name
+ * @param {!ContextProp<T>} prop
+ * @param {*} setter
+ * @param {T} value
+ * @template T
+ */
+export function setPropOnPseudoNode(node, name, prop, setter, value) {
+  ContextNode.get(node).pseudo(name).values.set(prop, setter, value);
 }
