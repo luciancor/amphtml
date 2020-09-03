@@ -225,6 +225,26 @@ export class ContextNode {
       setTimeout
     );
 
+    // Shadow root: track slot changes.
+    if (node.nodeType == FRAGMENT_NODE) {
+      node.addEventListener('slotchange', (e) => {
+        console.log('ContextNode: slotchange: ', e);
+        const slot = e.target;
+        // Rediscover newly assigned nodes.
+        const assignedNodes = slot.assignedNodes();
+        assignedNodes.forEach((node) => {
+          forEachContained(node, (cn) => cn.discover());
+        });
+        // Rediscover unassigned nodes.
+        // QQQQ: this code is only slightly different from forEachContained:
+        const closest = ContextNode.closest(slot);
+        const closestChildren = closest && closest.children;
+        if (closestChildren) {
+          closestChildren.forEach((cn) => cn.discover());
+        }
+      });
+    }
+
     this.discover();
   }
 
@@ -471,7 +491,9 @@ export class ContextNode {
           if (
             child != this &&
             child.isDiscoverable() &&
-            this.node.contains(child.node)
+            // QQQQQ: implement rules for slot.contains()
+            // this.node.contains(child.node)
+            true
           ) {
             child.discover();
           }
